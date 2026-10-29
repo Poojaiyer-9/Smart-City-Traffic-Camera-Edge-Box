@@ -1,0 +1,417 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Smart-City Traffic Edge — Security Dashboard</title>
+  <link rel="stylesheet" href="/static/css/style.css" />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet"/>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css"/>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+</head>
+<body>
+
+<!-- ══════════════════════════════════════════════════════════════
+     TOP NAV BAR
+═══════════════════════════════════════════════════════════════ -->
+<header class="topbar">
+  <div class="brand">
+    <div class="brand-icon"><i class="fas fa-traffic-light"></i></div>
+    <div>
+      <span class="brand-title">Smart-City Traffic Edge</span>
+      <span class="brand-sub">Secure Edge AI Node — v2.0</span>
+    </div>
+  </div>
+  <div class="topbar-center">
+    <div class="status-pill online"><span class="pulse-dot"></span>Edge Server Online</div>
+    <div class="uptime-display">Uptime: <span id="uptimeVal">0s</span></div>
+  </div>
+  <div class="topbar-right">
+    <div class="clock" id="clockDisplay">--:--:--</div>
+    <button class="btn-flood" onclick="triggerFlood()" title="Simulate DoS Flood">
+      <i class="fas fa-bolt"></i> Flood Attack
+    </button>
+    <button class="btn-inject" onclick="injectCamera()" title="Send one camera reading">
+      <i class="fas fa-camera"></i> Inject Reading
+    </button>
+  </div>
+</header>
+
+<main class="layout">
+
+  <!-- ══════════════════════════════════════════════════════════
+       LEFT SIDEBAR – Stat Cards
+  ═══════════════════════════════════════════════════════════ -->
+  <aside class="sidebar">
+
+    <div class="section-label">Overview</div>
+
+    <div class="stat-card purple">
+      <div class="stat-icon"><i class="fas fa-upload"></i></div>
+      <div class="stat-body">
+        <div class="stat-val" id="totalUploads">0</div>
+        <div class="stat-lbl">Total Uploads</div>
+      </div>
+    </div>
+
+    <div class="stat-card green">
+      <div class="stat-icon"><i class="fas fa-shield-check"></i></div>
+      <div class="stat-body">
+        <div class="stat-val" id="hmacVerified">0</div>
+        <div class="stat-lbl">HMAC Verified</div>
+      </div>
+    </div>
+
+    <div class="stat-card red">
+      <div class="stat-icon"><i class="fas fa-triangle-exclamation"></i></div>
+      <div class="stat-body">
+        <div class="stat-val" id="hmacFailed">0</div>
+        <div class="stat-lbl">HMAC Failures</div>
+      </div>
+    </div>
+
+    <div class="stat-card orange">
+      <div class="stat-icon"><i class="fas fa-ban"></i></div>
+      <div class="stat-body">
+        <div class="stat-val" id="quarantineCount">0</div>
+        <div class="stat-lbl">Quarantined Cams</div>
+      </div>
+    </div>
+
+    <div class="stat-card blue">
+      <div class="stat-icon"><i class="fas fa-key"></i></div>
+      <div class="stat-body">
+        <div class="stat-val" id="jwtIssued">0</div>
+        <div class="stat-lbl">JWT Tokens Issued</div>
+      </div>
+    </div>
+
+    <div class="stat-card cyan">
+      <div class="stat-icon"><i class="fas fa-magnifying-glass"></i></div>
+      <div class="stat-body">
+        <div class="stat-val" id="sseSearches">0</div>
+        <div class="stat-lbl">SSE Searches</div>
+      </div>
+    </div>
+
+    <div class="stat-card teal">
+      <div class="stat-icon"><i class="fas fa-plus-minus"></i></div>
+      <div class="stat-body">
+        <div class="stat-val" id="paillierCount">0</div>
+        <div class="stat-lbl">HOM Count (Paillier)</div>
+      </div>
+    </div>
+
+    <div class="stat-card pink">
+      <div class="stat-icon"><i class="fas fa-shuffle"></i></div>
+      <div class="stat-body">
+        <div class="stat-val" id="preRekeys">0</div>
+        <div class="stat-lbl">PRE Re-keys</div>
+      </div>
+    </div>
+
+  </aside>
+
+  <!-- ══════════════════════════════════════════════════════════
+       MAIN CONTENT GRID
+  ═══════════════════════════════════════════════════════════ -->
+  <section class="content-grid">
+
+    <!-- Row 1 – CIA banner -->
+    <div class="card full-width cia-banner">
+      <div class="card-head">
+        <i class="fas fa-lock"></i>
+        <span>4.1 Data Security (CIA Triad)</span>
+        <span class="badge badge-green">Active</span>
+      </div>
+      <div class="cia-row">
+        <div class="cia-item green">
+          <i class="fas fa-eye-slash"></i>
+          <span class="cia-title">Confidentiality</span>
+          <span class="cia-desc">AES-128-CBC at rest · TLS in transit</span>
+          <div class="cia-bar"><div class="cia-fill" style="width:100%"></div></div>
+        </div>
+        <div class="cia-item blue">
+          <i class="fas fa-file-shield"></i>
+          <span class="cia-title">Integrity</span>
+          <span class="cia-desc">HMAC-SHA256 every packet</span>
+          <div class="cia-bar"><div id="integrityBar" class="cia-fill" style="width:100%"></div></div>
+        </div>
+        <div class="cia-item purple">
+          <i class="fas fa-server"></i>
+          <span class="cia-title">Availability</span>
+          <span class="cia-desc">Backup process + rate-limiter</span>
+          <div class="cia-bar"><div class="cia-fill" style="width:98%"></div></div>
+        </div>
+      </div>
+    </div>
+
+    <div class="card full-width live-video-card">
+      <div class="card-head">
+        <i class="fas fa-video"></i>
+        <span>Live Video &amp; Vehicle Detection</span>
+        <span class="badge badge-orange" id="videoConnection">Waiting for camera</span>
+      </div>
+      <div class="video-dashboard">
+        <div class="video-stage">
+          <img id="videoFeed" alt="Live annotated traffic camera feed" />
+          <div class="video-placeholder" id="videoPlaceholder">
+            <i class="fas fa-video-slash"></i>
+            <strong>Waiting for video</strong>
+            <span>Start video_camera.py to show the live feed and detection boxes.</span>
+          </div>
+        </div>
+        <div class="video-details">
+          <div class="video-metric"><span>Vehicles in frame</span><strong id="videoDetectionCount">0</strong></div>
+          <div class="video-metric"><span>Vehicles sent</span><strong id="videoSentCount">0</strong></div>
+          <div class="video-metric"><span>Camera</span><strong id="videoCameraId">VIDEO-CAM-01</strong></div>
+          <div class="video-metric"><span>Zone</span><strong id="videoZone">Zone1</strong></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Row 2 – Live Plates + Chart -->
+    <div class="card col-7">
+      <div class="card-head">
+        <i class="fas fa-camera-cctv"></i>
+        <span>Live Plate Readings</span>
+        <span class="badge badge-blue" id="plateCount">0 records</span>
+      </div>
+      <div class="plate-table-wrap">
+        <table class="plate-table">
+          <thead>
+            <tr>
+              <th>Time</th><th>Camera</th><th>Zone</th>
+              <th>Plate (Masked)</th><th>Category</th><th>Speed</th><th>Status</th>
+            </tr>
+          </thead>
+          <tbody id="plateTableBody">
+            <tr class="empty-row"><td colspan="7">No records yet — inject a reading or start camera.py</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <div class="card col-5">
+      <div class="card-head"><i class="fas fa-chart-bar"></i><span>Upload Activity</span></div>
+      <canvas id="uploadChart" height="200"></canvas>
+    </div>
+
+    <!-- Row 3 – Crypto Topics Row -->
+
+    <!-- 4.3 IBE -->
+    <div class="card col-4">
+      <div class="card-head">
+        <i class="fas fa-fingerprint"></i>
+        <span>4.3 Identity-Based Encryption</span>
+        <span class="badge badge-purple">IBE</span>
+      </div>
+      <div class="topic-body">
+        <div class="info-row"><span class="lbl">Gateway Identity</span><span class="mono">intersection-47-gateway</span></div>
+        <div class="info-row"><span class="lbl">Neighbour Identity</span><span class="mono">edge-neighbour-01</span></div>
+        <div class="info-row"><span class="lbl">IBE Lookups</span><span id="ibeLookups" class="val-badge blue">0</span></div>
+        <div class="info-row"><span class="lbl">Algorithm</span><span class="mono">ECDH + AES-128</span></div>
+        <button class="action-btn" onclick="demoIBE()"><i class="fas fa-play"></i> Demo Encrypt / Decrypt</button>
+        <div class="demo-output" id="ibeOutput"></div>
+      </div>
+    </div>
+
+    <!-- 4.4 ABE -->
+    <div class="card col-4">
+      <div class="card-head">
+        <i class="fas fa-user-shield"></i>
+        <span>4.4 Ciphertext-Policy ABE</span>
+        <span class="badge badge-orange">CP-ABE</span>
+      </div>
+      <div class="topic-body">
+        <div class="info-row"><span class="lbl">Policy</span><span class="mono small">TrafficOfficer AND Zone3</span></div>
+        <div class="info-row"><span class="lbl">Access Granted</span><span id="abeGranted" class="val-badge green">0</span></div>
+        <div class="info-row"><span class="lbl">Access Denied</span><span id="abeDenied" class="val-badge red">0</span></div>
+        <div class="abe-test">
+          <div class="attr-row">
+            <label><input type="checkbox" id="attrTO" checked /> TrafficOfficer</label>
+            <label><input type="checkbox" id="attrZ3" checked /> Zone3</label>
+            <label><input type="checkbox" id="attrAdmin" /> Admin</label>
+          </div>
+          <button class="action-btn" onclick="demoABE()"><i class="fas fa-check-double"></i> Check Policy</button>
+        </div>
+        <div class="demo-output" id="abeOutput"></div>
+      </div>
+    </div>
+
+    <!-- 4.5 PRE -->
+    <div class="card col-4">
+      <div class="card-head">
+        <i class="fas fa-arrows-rotate"></i>
+        <span>4.5 Proxy Re-Encryption</span>
+        <span class="badge badge-cyan">PRE</span>
+      </div>
+      <div class="topic-body">
+        <div class="info-row"><span class="lbl">Owner</span><span class="mono small">intersection-47-gateway</span></div>
+        <div class="info-row"><span class="lbl">Neighbour</span><span class="mono small">edge-neighbour-01</span></div>
+        <div class="info-row"><span class="lbl">Re-keys Generated</span><span id="preRekeysCard" class="val-badge cyan">0</span></div>
+        <div class="info-row"><span class="lbl">Mode</span><span class="mono">No plaintext on edge</span></div>
+        <button class="action-btn" onclick="demoPRE()"><i class="fas fa-key"></i> Generate Re-key</button>
+        <div class="demo-output" id="preOutput"></div>
+      </div>
+    </div>
+
+    <!-- Row 4 -->
+
+    <!-- 4.6 FE -->
+    <div class="card col-3">
+      <div class="card-head">
+        <i class="fas fa-function"></i>
+        <span>4.6 Functional Encryption</span>
+        <span class="badge badge-teal">FE</span>
+      </div>
+      <div class="topic-body">
+        <div class="fe-counter">
+          <div class="fe-num" id="feCount">0</div>
+          <div class="fe-lbl">Monthly Vehicle Count<br/><small>(only result exposed — no raw plates)</small></div>
+        </div>
+        <button class="action-btn" onclick="demoFE()"><i class="fas fa-calculator"></i> Query Count (JWT)</button>
+        <div class="demo-output" id="feOutput"></div>
+      </div>
+    </div>
+
+    <!-- 4.7 Honey -->
+    <div class="card col-3">
+      <div class="card-head">
+        <i class="fas fa-jar-wheat"></i>
+        <span>4.7 Honey Encryption</span>
+        <span class="badge badge-yellow">HE</span>
+      </div>
+      <div class="topic-body">
+        <div class="info-row"><span class="lbl">Decoys Served</span><span id="honeyDecoys" class="val-badge yellow">0</span></div>
+        <div class="input-row">
+          <input type="text" id="honeyPwd" placeholder="Enter password" class="mini-input" value="secret"/>
+          <button class="action-btn small" onclick="demoHoney()"><i class="fas fa-door-open"></i> Open Vault</button>
+        </div>
+        <button class="action-btn grey" onclick="storeHoney()"><i class="fas fa-save"></i> Store Vault (correct pwd)</button>
+        <div class="demo-output" id="honeyOutput"></div>
+      </div>
+    </div>
+
+    <!-- 4.8 SSE -->
+    <div class="card col-3">
+      <div class="card-head">
+        <i class="fas fa-magnifying-glass-lock"></i>
+        <span>4.8 Searchable Encryption</span>
+        <span class="badge badge-blue">SSE</span>
+      </div>
+      <div class="topic-body">
+        <div class="info-row"><span class="lbl">Index Entries</span><span id="sseIndexSize" class="val-badge blue">0</span></div>
+        <div class="info-row"><span class="lbl">Searches Done</span><span id="sseSearchesSide" class="val-badge blue">0</span></div>
+        <div class="input-row">
+          <select id="sseKeyword" class="mini-select">
+            <option>stolen</option>
+            <option>wanted</option>
+            <option>normal</option>
+          </select>
+          <button class="action-btn small" onclick="demoSSE()"><i class="fas fa-search"></i> Search</button>
+        </div>
+        <div class="demo-output" id="sseOutput"></div>
+      </div>
+    </div>
+
+    <!-- 4.9 HOM -->
+    <div class="card col-3">
+      <div class="card-head">
+        <i class="fas fa-sigma"></i>
+        <span>4.9 Homomorphic Encryption</span>
+        <span class="badge badge-purple">Paillier</span>
+      </div>
+      <div class="topic-body">
+        <div class="info-row"><span class="lbl">Encrypted counts</span><span id="homEncCounts" class="val-badge purple">0</span></div>
+        <div class="info-row"><span class="lbl">Scheme</span><span class="mono">Paillier (additive HE)</span></div>
+        <div class="info-row"><span class="lbl">Private key</span><span class="mono">Utility only</span></div>
+        <button class="action-btn" onclick="demoHOM()"><i class="fas fa-sigma"></i> Compute Sum</button>
+        <div class="demo-output" id="homOutput"></div>
+      </div>
+    </div>
+
+    <!-- Row 5 – Auth + Privacy + Attack -->
+
+    <!-- 4.10 Auth -->
+    <div class="card col-4">
+      <div class="card-head">
+        <i class="fas fa-id-badge"></i>
+        <span>4.10 Authentication</span>
+        <span class="badge badge-green">JWT · HMAC · Handover</span>
+      </div>
+      <div class="topic-body">
+        <div class="auth-pills">
+          <div class="auth-pill green"><i class="fas fa-lock"></i>Pre-shared HMAC<br/><small>Single-domain cameras</small></div>
+          <div class="auth-pill blue"><i class="fas fa-ticket"></i>JWT Bearer<br/><small>Cross-domain city</small></div>
+          <div class="auth-pill purple"><i class="fas fa-exchange-alt"></i>Ticket Handover<br/><small>Edge-to-edge</small></div>
+        </div>
+        <div class="info-row mt8"><span class="lbl">JWT Verified</span><span id="jwtVerifiedCard" class="val-badge green">0</span></div>
+        <div class="info-row"><span class="lbl">Handovers</span><span id="handoversCard" class="val-badge purple">0</span></div>
+        <div class="btn-row">
+          <button class="action-btn small" onclick="demoJWT()"><i class="fas fa-key"></i> Issue JWT</button>
+          <button class="action-btn small" onclick="demoHandover()"><i class="fas fa-right-left"></i> Handover</button>
+        </div>
+        <div class="demo-output" id="authOutput"></div>
+      </div>
+    </div>
+
+    <!-- 4.11 Privacy -->
+    <div class="card col-4">
+      <div class="card-head">
+        <i class="fas fa-user-secret"></i>
+        <span>4.11 Privacy</span>
+        <span class="badge badge-teal">DP · k-anon · TID</span>
+      </div>
+      <div class="topic-body">
+        <div class="privacy-pills">
+          <div class="priv-item"><i class="fas fa-hashtag"></i><span>Plate Hashing</span><small>One-way SHA-256</small></div>
+          <div class="priv-item"><i class="fas fa-wave-square"></i><span>DP Noise</span><small>Laplace ε=0.5</small></div>
+          <div class="priv-item"><i class="fas fa-location-dot"></i><span>Dummy Location</span><small>Injected GPS blur</small></div>
+          <div class="priv-item"><i class="fas fa-rotate"></i><span>Temp Camera IDs</span><small>Rotates every 10 min</small></div>
+        </div>
+        <div class="info-row mt8"><span class="lbl">Noise Applications</span><span id="privacyNoise" class="val-badge teal">0</span></div>
+        <button class="action-btn" onclick="demoPrivacy()"><i class="fas fa-eye-slash"></i> Show Privacy Output</button>
+        <div class="demo-output" id="privacyOutput"></div>
+      </div>
+    </div>
+
+    <!-- 4.12 Attack Detection -->
+    <div class="card col-4">
+      <div class="card-head">
+        <i class="fas fa-shield-virus"></i>
+        <span>4.12 Attack Detection</span>
+        <span class="badge badge-red">Rate-Limit · Anomaly</span>
+      </div>
+      <div class="topic-body">
+        <div class="info-row"><span class="lbl">Rate Window</span><span class="mono" id="rateWindow">10s</span></div>
+        <div class="info-row"><span class="lbl">Max Requests</span><span class="mono" id="rateLimit">10</span></div>
+        <div class="info-row"><span class="lbl">Quarantined IDs</span><span id="quarantinedList" class="mono small red-text">None</span></div>
+        <div class="camera-rates" id="cameraRateList"></div>
+        <div id="attackAlert" class="attack-alert hidden">
+          <i class="fas fa-siren-on"></i> <strong>FLOOD DETECTED</strong> — Camera quarantined!
+        </div>
+      </div>
+    </div>
+
+    <!-- Row 6 – Activity Log -->
+    <div class="card full-width">
+      <div class="card-head">
+        <i class="fas fa-terminal"></i>
+        <span>4.13 Activity Log  <small style="opacity:.6">Resource-Constrained · All events</small></span>
+        <button class="clear-btn" onclick="clearLog()"><i class="fas fa-trash"></i> Clear</button>
+      </div>
+      <div class="log-container" id="activityLog">
+        <div class="log-empty">Waiting for events…</div>
+      </div>
+    </div>
+
+  </section>
+</main>
+
+<!-- ══ TOAST NOTIFICATION ══ -->
+<div id="toast" class="toast hidden"></div>
+
+<script src="/static/js/dashboard.js"></script>
+</body>
+</html>
